@@ -44,6 +44,12 @@ pub struct BloomFilter {
     bits: Box<[u8; BLOOM_FILTER_SIZE_BYTES]>,
 }
 
+impl Default for BloomFilter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BloomFilter {
     pub fn new() -> Self {
         Self {
@@ -109,6 +115,12 @@ pub struct System1ReflexGate {
     labels: HashMap<[u8; 20], String>,
 }
 
+impl Default for System1ReflexGate {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl System1ReflexGate {
     pub fn new() -> Self {
         let mut gate = Self {
@@ -136,7 +148,7 @@ impl System1ReflexGate {
             self.bloom.insert(&bytes);
             self.labels.insert(bytes, label.to_string());
             self.exact_registry.push((bytes, threat));
-            self.exact_registry.sort_by(|a, b| a.0.cmp(&b.0));
+            self.exact_registry.sort_by_key(|a| a.0);
         }
     }
 

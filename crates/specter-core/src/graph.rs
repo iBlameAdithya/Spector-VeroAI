@@ -60,6 +60,12 @@ pub struct PeelChainTracer {
     peel_threshold: f64,
 }
 
+impl Default for PeelChainTracer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PeelChainTracer {
     pub fn new() -> Self {
         Self {
@@ -134,8 +140,10 @@ impl PeelChainTracer {
             // Process the main trunk
             if let Some((next_trunk_addr, trunk_amount, ratio)) = trunk_output {
                 // Check if this node is a VASP deposit address
-                let is_canonical_vasp = next_trunk_addr.eq_ignore_ascii_case("0x3f5ce5fb59e02f43cf8d1326be81a329d448181a");
-                let is_terminal_hop = idx == tx_chain.len() - 1 || idx == depth - 1 || is_canonical_vasp;
+                let is_canonical_vasp = next_trunk_addr
+                    .eq_ignore_ascii_case("0x3f5ce5fb59e02f43cf8d1326be81a329d448181a");
+                let is_terminal_hop =
+                    idx == tx_chain.len() - 1 || idx == depth - 1 || is_canonical_vasp;
                 let (vasp_ident, _) = self.vasp_registry.evaluate_node(
                     &next_trunk_addr,
                     is_terminal_hop,
@@ -159,11 +167,7 @@ impl PeelChainTracer {
                         92.0,
                     )
                 } else {
-                    (
-                        format!("Mule Split {}", idx + 1),
-                        "peel".to_string(),
-                        90.0,
-                    )
+                    (format!("Mule Split {}", idx + 1), "peel".to_string(), 90.0)
                 };
 
                 nodes.push(GraphNode {

@@ -78,7 +78,10 @@ impl TypologyDetector {
                 ),
                 trigger_conditions: vec![
                     "Terminal node matches verified VASP infrastructure cluster".to_string(),
-                    format!("Attribution confidence >= 90% (Actual: {:.1}%)", v.confidence_score),
+                    format!(
+                        "Attribution confidence >= 90% (Actual: {:.1}%)",
+                        v.confidence_score
+                    ),
                 ],
                 confidence_score: v.confidence_score,
                 supporting_transactions: hops.iter().map(|h| h.tx_hash.clone()).collect(),
@@ -201,7 +204,10 @@ impl TypologyDetector {
         None
     }
 
-    fn detect_vasp_convergence(graph: &ForensicGraph, vasp: &VaspIdentity) -> Option<TypologyFinding> {
+    fn detect_vasp_convergence(
+        graph: &ForensicGraph,
+        vasp: &VaspIdentity,
+    ) -> Option<TypologyFinding> {
         // Count edges terminating at the VASP deposit address
         let incoming_to_vasp: Vec<&GraphEdge> = graph
             .edges

@@ -85,8 +85,12 @@ async fn test_post_trace_canonical_incident_with_typologies_and_velocity() {
     // Verify Typologies (EGRE Detection)
     let typologies = json_val["typologies"].as_array().unwrap();
     assert!(!typologies.is_empty());
-    assert!(typologies.iter().any(|t| t["typology_name"].as_str().unwrap().contains("PEEL")));
-    assert!(typologies.iter().any(|t| t["typology_name"].as_str().unwrap().contains("VASP")));
+    assert!(typologies
+        .iter()
+        .any(|t| t["typology_name"].as_str().unwrap().contains("PEEL")));
+    assert!(typologies
+        .iter()
+        .any(|t| t["typology_name"].as_str().unwrap().contains("VASP")));
 
     // Verify Velocity Analysis
     let velocity = &json_val["velocity"];
@@ -103,8 +107,12 @@ async fn test_post_trace_canonical_incident_with_typologies_and_velocity() {
     assert_eq!(evidence["algorithm"], "BLAKE3-256");
 
     let clauses = evidence["statutory_clauses"].as_array().unwrap();
-    assert!(clauses.iter().any(|c| c.as_str().unwrap().contains("Section 91 CrPC")));
-    assert!(clauses.iter().any(|c| c.as_str().unwrap().contains("FATF Recommendation 16")));
+    assert!(clauses
+        .iter()
+        .any(|c| c.as_str().unwrap().contains("Section 91 CrPC")));
+    assert!(clauses
+        .iter()
+        .any(|c| c.as_str().unwrap().contains("FATF Recommendation 16")));
 
     // Verify Forensic Graph topology
     let graph = &json_val["graph"];
@@ -224,7 +232,10 @@ async fn test_sahyog_package_generation_and_fetch() {
     assert_eq!(json_sahyog["case_id"], "SPECTER-2026-9921");
     assert_eq!(json_sahyog["target_vasp_name"], "Binance");
     assert_eq!(json_sahyog["evidence_chain"].as_array().unwrap().len(), 7);
-    assert!(json_sahyog["formal_freeze_notice_text"].as_str().unwrap().contains("SECTION 91/94 CrPC"));
+    assert!(json_sahyog["formal_freeze_notice_text"]
+        .as_str()
+        .unwrap()
+        .contains("SECTION 91/94 CrPC"));
 
     // 3. Fetch SAHYOG package by case_id
     let req_get = Request::builder()
@@ -278,9 +289,15 @@ async fn test_voice_alert_and_chime_endpoints() {
     let json_voice: Value = serde_json::from_slice(&body_voice).unwrap();
 
     assert_eq!(json_voice["case_id"], "SPECTER-2026-9921");
-    assert!(json_voice["transcript"].as_str().unwrap().contains("SPECTER Priority Alert"));
+    assert!(json_voice["transcript"]
+        .as_str()
+        .unwrap()
+        .contains("SPECTER Priority Alert"));
     assert_eq!(json_voice["audio_format"], "audio/wav");
-    assert_eq!(json_voice["priority_level"], "CRITICAL_INTERVENTION_REQUIRED");
+    assert_eq!(
+        json_voice["priority_level"],
+        "CRITICAL_INTERVENTION_REQUIRED"
+    );
 
     // 3. Test Voice Chime WAV generator
     let req_chime = Request::builder()
@@ -301,4 +318,3 @@ async fn test_voice_alert_and_chime_endpoints() {
     assert_eq!(&body_chime[0..4], b"RIFF");
     assert_eq!(&body_chime[8..12], b"WAVE");
 }
-

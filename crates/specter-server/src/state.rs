@@ -1,8 +1,8 @@
 //! Application State & In-Memory Case Repository
 
 use specter_core::{
-    EvidenceBundle, ForensicGraph, HopRecord, PeelChainTracer, ReflexScreeningResult, SahyogPackage,
-    System1ReflexGate, TracingSummary, TypologyFinding, VelocityAnalysis,
+    EvidenceBundle, ForensicGraph, HopRecord, PeelChainTracer, ReflexScreeningResult,
+    SahyogPackage, System1ReflexGate, TracingSummary, TypologyFinding, VelocityAnalysis,
 };
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
@@ -39,6 +39,12 @@ pub struct AppState {
     pub p99_latency_us: AtomicU64,
 }
 
+impl Default for AppState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AppState {
     pub fn new() -> Self {
         Self {
@@ -54,7 +60,12 @@ impl AppState {
     pub fn record_latency(&self, us: u64) {
         self.query_counter.fetch_add(1, Ordering::Relaxed);
         let current = self.p99_latency_us.load(Ordering::Relaxed);
-        let updated = if current == 0 { us } else { (current * 9 + us) / 10 };
-        self.p99_latency_us.store(updated.clamp(40, 95), Ordering::Relaxed);
+        let updated = if current == 0 {
+            us
+        } else {
+            (current * 9 + us) / 10
+        };
+        self.p99_latency_us
+            .store(updated.clamp(40, 95), Ordering::Relaxed);
     }
 }

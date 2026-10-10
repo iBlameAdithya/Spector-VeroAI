@@ -184,7 +184,8 @@ fn handle_tool_call(
                 .unwrap_or(CANONICAL_CASE_ID);
 
             let scenario = get_canonical_scenario();
-            let (_, hops, _) = tracer.trace_transactions(CANONICAL_VICTIM, 150000.0, "USDT", &scenario, 4);
+            let (_, hops, _) =
+                tracer.trace_transactions(CANONICAL_VICTIM, 150000.0, "USDT", &scenario, 4);
 
             let mut evidence = MerkleEngine::compile_evidence_bundle(case_id, &hops);
             if case_id == CANONICAL_CASE_ID {
@@ -219,7 +220,8 @@ fn handle_tool_call(
             let (graph, hops, summary) =
                 tracer.trace_transactions(victim_addr, 150000.0, "USDT", &scenario, 4);
 
-            let typologies = TypologyDetector::analyze(&graph, &hops, summary.destination_vasp.as_ref());
+            let typologies =
+                TypologyDetector::analyze(&graph, &hops, summary.destination_vasp.as_ref());
             let velocity = VelocityAnalyzer::analyze(&hops, 150000.0);
 
             let result = json!({
@@ -260,20 +262,17 @@ fn handle_tool_call(
             let (_, hops, summary) =
                 tracer.trace_transactions(CANONICAL_VICTIM, 150000.0, "USDT", &scenario, 4);
 
-            let vasp = summary.destination_vasp.as_ref().ok_or("No VASP exit identified")?;
+            let vasp = summary
+                .destination_vasp
+                .as_ref()
+                .ok_or("No VASP exit identified")?;
             let mut evidence = MerkleEngine::compile_evidence_bundle(case_id, &hops);
             if case_id == CANONICAL_CASE_ID {
                 evidence.merkle_root = CANONICAL_MERKLE_ROOT.to_string();
             }
 
             let package = SahyogAdapter::build_freeze_package(
-                case_id,
-                fir_no,
-                station,
-                officer_id,
-                vasp,
-                &evidence,
-                149000.0,
+                case_id, fir_no, station, officer_id, vasp, &evidence, 149000.0,
             );
 
             Ok(json!({

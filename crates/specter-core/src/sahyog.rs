@@ -141,7 +141,10 @@ impl SahyogAdapter {
             target_deposit_address: vasp.deposit_address.clone(),
             claimed_value: claim_value,
             statutory_framework: "Section 91/94 CrPC & Section 94 BNSS (2023)".to_string(),
-            legal_directive_title: format!("MHA-I4C Urgent Asset Preservation Directive ({})", vasp.name),
+            legal_directive_title: format!(
+                "MHA-I4C Urgent Asset Preservation Directive ({})",
+                vasp.name
+            ),
             formal_freeze_notice_text: formal_notice_text,
             evidence_chain,
             merkle_root: evidence.merkle_root.clone(),

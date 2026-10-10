@@ -59,20 +59,12 @@ mod tests {
         let tracer = PeelChainTracer::new();
         let scenario = get_canonical_scenario();
 
-        let (graph, hops, summary) = tracer.trace_transactions(
-            CANONICAL_VICTIM,
-            150000.0,
-            "USDT",
-            &scenario,
-            4,
-        );
+        let (graph, hops, summary) =
+            tracer.trace_transactions(CANONICAL_VICTIM, 150000.0, "USDT", &scenario, 4);
 
         assert_eq!(hops.len(), 3);
         assert!(summary.exit_vasp_identified);
-        assert_eq!(
-            summary.destination_vasp.as_ref().unwrap().name,
-            "Binance"
-        );
+        assert_eq!(summary.destination_vasp.as_ref().unwrap().name, "Binance");
         assert_eq!(
             summary.destination_vasp.as_ref().unwrap().deposit_address,
             CANONICAL_VASP_DEPOSIT
@@ -91,13 +83,8 @@ mod tests {
         let tracer = PeelChainTracer::new();
         let scenario = get_canonical_scenario();
 
-        let (graph, hops, summary) = tracer.trace_transactions(
-            CANONICAL_VICTIM,
-            150000.0,
-            "USDT",
-            &scenario,
-            4,
-        );
+        let (graph, hops, summary) =
+            tracer.trace_transactions(CANONICAL_VICTIM, 150000.0, "USDT", &scenario, 4);
 
         let vasp = summary.destination_vasp.as_ref();
 
@@ -123,13 +110,8 @@ mod tests {
         let tracer = PeelChainTracer::new();
         let scenario = get_canonical_scenario();
 
-        let (_, hops, summary) = tracer.trace_transactions(
-            CANONICAL_VICTIM,
-            150000.0,
-            "USDT",
-            &scenario,
-            4,
-        );
+        let (_, hops, summary) =
+            tracer.trace_transactions(CANONICAL_VICTIM, 150000.0, "USDT", &scenario, 4);
 
         let evidence = MerkleEngine::compile_evidence_bundle(CANONICAL_CASE_ID, &hops);
         let vasp = summary.destination_vasp.as_ref().unwrap();
@@ -147,7 +129,11 @@ mod tests {
         assert_eq!(package.case_id, CANONICAL_CASE_ID);
         assert_eq!(package.target_vasp_name, "Binance");
         assert_eq!(package.evidence_chain.len(), 7);
-        assert!(package.formal_freeze_notice_text.contains("SECTION 91/94 CrPC"));
-        assert!(package.formal_freeze_notice_text.contains("BHARATIYA NAGARIK SURAKSHA SANHITA"));
+        assert!(package
+            .formal_freeze_notice_text
+            .contains("SECTION 91/94 CrPC"));
+        assert!(package
+            .formal_freeze_notice_text
+            .contains("BHARATIYA NAGARIK SURAKSHA SANHITA"));
     }
 }

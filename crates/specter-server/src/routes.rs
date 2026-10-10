@@ -159,20 +159,20 @@ pub async fn trace_handler(
     let case_id = if is_canonical {
         CANONICAL_CASE_ID.to_string()
     } else {
-        format!("SPECTER-2026-{}", &hex::encode(blake3::hash(stolen_tx.as_bytes()).as_bytes())[..4].to_uppercase())
+        format!(
+            "SPECTER-2026-{}",
+            hex::encode(blake3::hash(stolen_tx.as_bytes()).as_bytes())[..4].to_uppercase()
+        )
     };
 
     // 3. Perform graph extraction
     let scenario = generate_dynamic_scenario(victim, stolen_tx);
     let initial_loss = if is_canonical { 150000.0 } else { 75000.0 };
 
-    let (graph, hops, summary) = state.tracer.trace_transactions(
-        victim,
-        initial_loss,
-        "USDT",
-        &scenario,
-        payload.max_hops,
-    );
+    let (graph, hops, summary) =
+        state
+            .tracer
+            .trace_transactions(victim, initial_loss, "USDT", &scenario, payload.max_hops);
 
     // 4. Financial Crime Typologies (EGRE Engine)
     let typologies = TypologyDetector::analyze(&graph, &hops, summary.destination_vasp.as_ref());
@@ -232,7 +232,9 @@ pub async fn sahyog_package_handler(
     Json(payload): Json<SahyogPackageRequest>,
 ) -> Result<Json<SahyogPackage>, StatusCode> {
     let mut cases = state.cases.write().await;
-    let case = cases.get_mut(&payload.case_id).ok_or(StatusCode::NOT_FOUND)?;
+    let case = cases
+        .get_mut(&payload.case_id)
+        .ok_or(StatusCode::NOT_FOUND)?;
 
     let vasp = case
         .tracing_summary
@@ -303,7 +305,8 @@ pub async fn voice_alert_handler(
     let latency_us = case.system1_reflex.latency_us;
     let eta = case.velocity.estimated_liquidation_eta_minutes;
 
-    let transcript = VoiceAlertDispatcher::build_transcript(&case_id, vasp_name, amount, latency_us, eta);
+    let transcript =
+        VoiceAlertDispatcher::build_transcript(&case_id, vasp_name, amount, latency_us, eta);
 
     // Trigger live system speech on Windows presentation environment
     VoiceAlertDispatcher::speak_live_alert(&transcript);
@@ -321,10 +324,7 @@ pub async fn voice_alert_handler(
 /// GET /voice/chime
 pub async fn voice_chime_handler() -> impl IntoResponse {
     let wav_bytes = VoiceAlertDispatcher::synthesize_alert_chime(44100, 0.4);
-    (
-        [(axum::http::header::CONTENT_TYPE, "audio/wav")],
-        wav_bytes,
-    )
+    ([(axum::http::header::CONTENT_TYPE, "audio/wav")], wav_bytes)
 }
 
 /// POST /agent/prepare-freeze
@@ -387,7 +387,10 @@ pub async fn sign_and_submit_handler(
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    let warrant_id = format!("WARRANT-BINANCE-{}", &payload.case_id.replace("SPECTER-", ""));
+    let warrant_id = format!(
+        "WARRANT-BINANCE-{}",
+        payload.case_id.replace("SPECTER-", "")
+    );
 
     // Forward sign command to agent bridge if listening
     let client = reqwest::Client::new();

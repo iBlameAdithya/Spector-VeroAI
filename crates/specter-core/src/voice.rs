@@ -28,16 +28,11 @@ impl VoiceAlertDispatcher {
         eta_minutes: u64,
     ) -> String {
         format!(
-            "SPECTER Priority Alert. Case Ref {case}. \
-            System One reflex gate matched in {latency} microseconds. \
-            Illicit value of {amount} dollars USDT detected peeling towards {vasp}. \
-            Estimated liquidation window is {eta} minutes. \
-            Agent browser prefill complete. Awaiting authorized officer signature.",
-            case = case_id,
-            latency = latency_us,
-            amount = format!("${:.0}", amount_usd),
-            vasp = vasp_name,
-            eta = eta_minutes,
+            "SPECTER Priority Alert. Case Ref {case_id}. \
+            System One reflex gate matched in {latency_us} microseconds. \
+            Illicit value of ${amount_usd:.0} dollars USDT detected peeling towards {vasp_name}. \
+            Estimated liquidation window is {eta_minutes} minutes. \
+            Agent browser prefill complete. Awaiting authorized officer signature."
         )
     }
 
@@ -74,8 +69,8 @@ impl VoiceAlertDispatcher {
         // "fmt " sub-chunk
         wav.extend_from_slice(b"fmt ");
         wav.extend_from_slice(&16u32.to_le_bytes()); // SubChunk1Size (16 for PCM)
-        wav.extend_from_slice(&1u16.to_le_bytes());  // AudioFormat (1 for PCM)
-        wav.extend_from_slice(&1u16.to_le_bytes());  // NumChannels (1 mono)
+        wav.extend_from_slice(&1u16.to_le_bytes()); // AudioFormat (1 for PCM)
+        wav.extend_from_slice(&1u16.to_le_bytes()); // NumChannels (1 mono)
         wav.extend_from_slice(&sample_rate.to_le_bytes());
         wav.extend_from_slice(&byte_rate.to_le_bytes());
         wav.extend_from_slice(&block_align.to_le_bytes());
@@ -97,7 +92,7 @@ impl VoiceAlertDispatcher {
     pub fn speak_live_alert(text: &str) {
         #[cfg(target_os = "windows")]
         {
-            let clean_text = text.replace('"', "").replace('\'', "");
+            let clean_text = text.replace(['"', '\''], "");
             let ps_script = format!(
                 "Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('{}')",
                 clean_text

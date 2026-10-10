@@ -1,8 +1,8 @@
 //! Latency Benchmark & Stress Test for System 1 In-Memory Reflex Gate
 
 use specter_core::{
-    get_canonical_scenario, MerkleEngine, PeelChainTracer, System1ReflexGate,
-    CANONICAL_CASE_ID, CANONICAL_VICTIM,
+    get_canonical_scenario, MerkleEngine, PeelChainTracer, System1ReflexGate, CANONICAL_CASE_ID,
+    CANONICAL_VICTIM,
 };
 use std::time::Instant;
 
@@ -69,13 +69,8 @@ fn test_end_to_end_forensic_pipeline_throughput() {
 
     let start = Instant::now();
     for _ in 0..100 {
-        let (graph, hops, summary) = tracer.trace_transactions(
-            CANONICAL_VICTIM,
-            150000.0,
-            "USDT",
-            &scenario,
-            4,
-        );
+        let (graph, hops, summary) =
+            tracer.trace_transactions(CANONICAL_VICTIM, 150000.0, "USDT", &scenario, 4);
         let evidence = MerkleEngine::compile_evidence_bundle(CANONICAL_CASE_ID, &hops);
         assert_eq!(hops.len(), 3);
         assert!(summary.exit_vasp_identified);
@@ -83,6 +78,12 @@ fn test_end_to_end_forensic_pipeline_throughput() {
         assert_eq!(graph.nodes.len(), 6);
     }
     let duration = start.elapsed();
-    println!("100 complete end-to-end forensic traces compiled in {:?}", duration);
-    assert!(duration.as_millis() < 500, "100 traces must execute in < 500ms");
+    println!(
+        "100 complete end-to-end forensic traces compiled in {:?}",
+        duration
+    );
+    assert!(
+        duration.as_millis() < 500,
+        "100 traces must execute in < 500ms"
+    );
 }

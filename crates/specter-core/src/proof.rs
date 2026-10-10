@@ -74,7 +74,7 @@ impl MerkleEngine {
         let mut current_level: Vec<[u8; 32]> = leaf_hashes.to_vec();
 
         while current_level.len() > 1 {
-            let mut next_level = Vec::with_capacity((current_level.len() + 1) / 2);
+            let mut next_level = Vec::with_capacity(current_level.len().div_ceil(2));
             for chunk in current_level.chunks(2) {
                 if chunk.len() == 2 {
                     next_level.push(Self::combine_hashes(&chunk[0], &chunk[1]));

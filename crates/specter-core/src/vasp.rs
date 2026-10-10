@@ -62,6 +62,12 @@ pub struct VaspClusterRegistry {
     barred_contracts: HashSet<String>,
 }
 
+impl Default for VaspClusterRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VaspClusterRegistry {
     pub fn new() -> Self {
         let mut registry = Self {
@@ -76,7 +82,8 @@ impl VaspClusterRegistry {
 
     /// Check if address is a barred token contract or router
     pub fn is_barred_contract(&self, address: &str) -> bool {
-        self.barred_contracts.contains(&address.trim().to_lowercase())
+        self.barred_contracts
+            .contains(&address.trim().to_lowercase())
     }
 
     pub fn evaluate_node(
@@ -141,9 +148,12 @@ impl VaspClusterRegistry {
                 cluster_type: "Deposit Hot Wallet #6".to_string(),
                 deposit_address: "0x3f5ce5fb59e02f43cf8d1326be81a329d448181a".to_string(),
                 confidence_score: 98.4,
-                hot_wallet_destination: Some("0x28C6c06298d514Db089934071355E5743bf21d60".to_string()),
+                hot_wallet_destination: Some(
+                    "0x28C6c06298d514Db089934071355E5743bf21d60".to_string(),
+                ),
                 sweep_time_minutes: Some(18),
-                compliance_portal_url: "http://localhost:3000/exchange/compliance-portal".to_string(),
+                compliance_portal_url: "http://localhost:3000/exchange/compliance-portal"
+                    .to_string(),
                 jurisdiction: "International / Malta / Cayman".to_string(),
                 supports_instant_freeze: true,
                 entity_role: EntityRole::Vasp.as_str().to_string(),
@@ -154,9 +164,12 @@ impl VaspClusterRegistry {
                 cluster_type: "Deposit Hot Wallet #6".to_string(),
                 deposit_address: address.to_string(),
                 confidence_score: aggregate_confidence,
-                hot_wallet_destination: Some("0x28C6c06298d514Db089934071355E5743bf21d60".to_string()),
+                hot_wallet_destination: Some(
+                    "0x28C6c06298d514Db089934071355E5743bf21d60".to_string(),
+                ),
                 sweep_time_minutes: Some(sweep_latency_mins),
-                compliance_portal_url: "http://localhost:3000/exchange/compliance-portal".to_string(),
+                compliance_portal_url: "http://localhost:3000/exchange/compliance-portal"
+                    .to_string(),
                 jurisdiction: "Global Omnibus Pool".to_string(),
                 supports_instant_freeze: true,
                 entity_role: EntityRole::Vasp.as_str().to_string(),
@@ -222,12 +235,16 @@ impl VaspClusterRegistry {
 
     fn populate_barred_contracts(&mut self) {
         // TRON USDT Contract (TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t)
-        self.barred_contracts.insert("tr7nhqjekqxgtci8q8zy4pl8otszgjlj6t".to_string());
+        self.barred_contracts
+            .insert("tr7nhqjekqxgtci8q8zy4pl8otszgjlj6t".to_string());
         // Ethereum USDT (0xdAC17F958D2ee523a2206206994597C13D831ec7)
-        self.barred_contracts.insert("0xdac17f958d2ee523a2206206994597c13d831ec7".to_string());
+        self.barred_contracts
+            .insert("0xdac17f958d2ee523a2206206994597c13d831ec7".to_string());
         // Ethereum USDC (0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48)
-        self.barred_contracts.insert("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48".to_string());
+        self.barred_contracts
+            .insert("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48".to_string());
         // WETH Contract
-        self.barred_contracts.insert("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2".to_string());
+        self.barred_contracts
+            .insert("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2".to_string());
     }
 }

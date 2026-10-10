@@ -51,7 +51,11 @@ impl VelocityAnalyzer {
         // Parse timestamps
         let mut timestamps: Vec<DateTime<Utc>> = hops
             .iter()
-            .filter_map(|h| DateTime::parse_from_rfc3339(&h.timestamp_utc).ok().map(|dt| dt.with_timezone(&Utc)))
+            .filter_map(|h| {
+                DateTime::parse_from_rfc3339(&h.timestamp_utc)
+                    .ok()
+                    .map(|dt| dt.with_timezone(&Utc))
+            })
             .collect();
 
         timestamps.sort();
@@ -63,7 +67,9 @@ impl VelocityAnalyzer {
         }
 
         let total_duration = if timestamps.len() >= 2 {
-            (timestamps[timestamps.len() - 1] - timestamps[0]).num_seconds().max(0) as u64
+            (timestamps[timestamps.len() - 1] - timestamps[0])
+                .num_seconds()
+                .max(0) as u64
         } else {
             // Default canonical 14 minutes = 840 seconds for single-hop demo
             840
