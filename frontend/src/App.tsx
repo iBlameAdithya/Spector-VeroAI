@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
+import {
+  Activity, ArrowRight, BadgeCheck, Building2, ChartNoAxesCombined,
+  CircleHelp, FileCheck2, Fingerprint, Gauge, Landmark, LockKeyhole,
+  Network, RefreshCw, ShieldAlert, ShieldCheck, Sparkles, Zap,
+} from 'lucide-react';
 import { api } from './api';
 import type {
-  HealthResponse,
-  TraceResponse,
-  VoiceAlertPayload,
-  SignAndSubmitResponse,
-  SahyogPackage,
+  HealthResponse, TraceResponse, VoiceAlertPayload, SignAndSubmitResponse, SahyogPackage,
 } from './api';
 import { Navbar } from './components/Navbar';
 import { InputBar } from './components/InputBar';
@@ -17,51 +18,58 @@ import { VelocityCard } from './components/VelocityCard';
 import { VoiceAlertBanner } from './components/VoiceAlertBanner';
 import { HitlModal } from './components/HitlModal';
 import { SahyogModal } from './components/SahyogModal';
-import {
-  ShieldAlert,
-  Lock,
-  ArrowRight,
-  Landmark,
-  Radio,
-  Building2,
-} from 'lucide-react';
+import './App.css';
+
+type PipelineState = 'IDLE' | 'SCREENING' | 'TRACING' | 'EVIDENCE_COMPILED' | 'AWAITING_HUMAN_SIGN' | 'COMPLETED';
+
+const DEMO_TX = '0x4a8b7c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b';
+const DEMO_WALLET = '0x71c6bfb575a35b50e76ec92432dd2741b23ac3a9';
+
+const pipelineSteps: { key: PipelineState; label: string }[] = [
+  { key: 'IDLE', label: 'Ready' },
+  { key: 'SCREENING', label: 'Reflex screening' },
+  { key: 'TRACING', label: 'Trace graph' },
+  { key: 'EVIDENCE_COMPILED', label: 'Evidence compiled' },
+  { key: 'AWAITING_HUMAN_SIGN', label: 'Human approval' },
+  { key: 'COMPLETED', label: 'Completed' },
+];
 
 export function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [trace, setTrace] = useState<TraceResponse | null>(null);
   const [voiceAlert, setVoiceAlert] = useState<VoiceAlertPayload | null>(null);
   const [loading, setLoading] = useState(false);
-  const [pipelineState, setPipelineState] = useState<
-    'IDLE' | 'SCREENING' | 'TRACING' | 'EVIDENCE_COMPILED' | 'AWAITING_HUMAN_SIGN' | 'COMPLETED'
-  >('IDLE');
-
-  // Modals
+  const [pipelineState, setPipelineState] = useState<PipelineState>('IDLE');
   const [isHitlOpen, setIsHitlOpen] = useState(false);
   const [isSahyogOpen, setIsSahyogOpen] = useState(false);
   const [sahyogPackage, setSahyogPackage] = useState<SahyogPackage | null>(null);
-  const [, setWarrantReceipt] = useState<SignAndSubmitResponse | null>(null);
+  const [warrantReceipt, setWarrantReceipt] = useState<SignAndSubmitResponse | null>(null);
 
-  // Poll health on mount
   useEffect(() => {
+    let mounted = true;
     const fetchHealth = async () => {
       try {
-        const h = await api.getHealth();
-        setHealth(h);
-      } catch (e) {
-        console.warn('Backend connecting...', e);
+        const result = await api.getHealth();
+        if (mounted) setHealth(result);
+      } catch (error) {
+        console.warn('Backend health check unavailable:', error);
+        if (mounted) setHealth(null);
       }
     };
-    fetchHealth();
-    const interval = setInterval(fetchHealth, 8000);
-    return () => clearInterval(interval);
+    void fetchHealth();
+    const interval = window.setInterval(() => void fetchHealth(), 8000);
+    return () => {
+      mounted = false;
+      window.clearInterval(interval);
+    };
   }, []);
 
-  // Handle Trace Execution
   const handleTrace = async (stolenTx: string, victimWallet: string, chain: string, maxHops: number) => {
     setLoading(true);
+    setVoiceAlert(null);
+    setWarrantReceipt(null);
     setPipelineState('SCREENING');
     try {
-      // Step 1: Trace incident
       setPipelineState('TRACING');
       const traceRes = await api.traceIncident({
         stolen_tx_hash: stolenTx,
@@ -71,23 +79,21 @@ export function App() {
       });
       setTrace(traceRes);
       setPipelineState('EVIDENCE_COMPILED');
-
-      // Step 2: Fetch tactical voice alert
       try {
-        const vAlert = await api.getVoiceAlert(traceRes.case_id);
-        setVoiceAlert(vAlert);
-      } catch (e) {
-        console.warn('Voice alert fetch notice:', e);
+        const alertPayload = await api.getVoiceAlert(traceRes.case_id);
+        setVoiceAlert(alertPayload);
+      } catch (error) {
+        console.warn('Voice alert could not be loaded:', error);
       }
-    } catch (err: any) {
-      alert(`Forensic trace error: ${err.message}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown tracing error';
+      window.alert(`Forensic trace error: ${message}`);
       setPipelineState('IDLE');
     } finally {
       setLoading(false);
     }
   };
 
-  // Trigger Prepare Freeze (Agentic Browser Operator)
   const handlePrepareFreeze = async () => {
     if (!trace) return;
     setLoading(true);
@@ -100,22 +106,22 @@ export function App() {
       });
       setPipelineState('AWAITING_HUMAN_SIGN');
       setIsHitlOpen(true);
-    } catch (err: any) {
-      alert(`Prepare freeze error: ${err.message}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown freeze preparation error';
+      window.alert(`Prepare freeze error: ${message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // Open SAHYOG Package generator
   const handleOpenSahyog = async () => {
     if (!trace) return;
     if (!sahyogPackage) {
       try {
         const pkg = await api.getSahyogPackage(trace.case_id);
         setSahyogPackage(pkg);
-      } catch {
-        // will be created in modal
+      } catch (error) {
+        console.warn('SAHYOG package will be prepared in the modal:', error);
       }
     }
     setIsSahyogOpen(true);
@@ -126,229 +132,202 @@ export function App() {
     setPipelineState('COMPLETED');
   };
 
+  const currentStep = pipelineSteps.findIndex((step) => step.key === pipelineState);
+  const healthLabel = health?.status || 'Connecting';
+  const healthOnline = Boolean(health && /online|healthy|ok|running/i.test(health.status));
+  const riskScore = trace?.velocity?.velocity_risk_score;
+  const graphNodes = trace?.graph?.nodes?.length ?? 0;
+  const graphEdges = trace?.graph?.edges?.length ?? 0;
+
   return (
-    <div className="min-h-screen bg-specter-bg text-white font-sans flex flex-col selection:bg-specter-cyan selection:text-black">
-      {/* Top Telemetry Header */}
+    <div className="sv-app min-h-screen font-sans">
       <Navbar health={health} />
 
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-6 space-y-6">
-        {/* Pipeline State Progress Bar */}
-        <div className="bg-specter-card/70 border border-specter-border rounded-xl px-4 py-3 flex items-center justify-between text-xs font-mono overflow-x-auto gap-3">
-          <div className="flex items-center gap-1.5 text-specter-muted text-[11px] shrink-0">
-            <Radio className="h-3.5 w-3.5 text-specter-cyan" />
-            <span>PIPELINE:</span>
+      <div className="sv-layout">
+        <aside className="sv-sidebar" aria-label="Dashboard navigation">
+          <div className="sv-sidebar-label">WORKSPACE</div>
+          <a className="sv-nav-link active" href="#overview"><Activity size={17} /> Overview</a>
+          <a className="sv-nav-link" href="#incident"><ShieldAlert size={17} /> Incident triage</a>
+          <a className="sv-nav-link" href="#trace-results"><Network size={17} /> Trace analysis</a>
+          <a className="sv-nav-link" href="#evidence"><FileCheck2 size={17} /> Evidence dossier</a>
+          <div className="sv-sidebar-divider" />
+          <div className="sv-sidebar-label">SYSTEM</div>
+          <div className="sv-system-state">
+            <span className={`sv-status-dot ${healthOnline ? 'online' : ''}`} />
+            <div><strong>{healthLabel}</strong><small>Rust core engine</small></div>
           </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <span
-              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                pipelineState === 'IDLE'
-                  ? 'bg-specter-gold/20 text-specter-gold border border-specter-gold/40'
-                  : 'bg-specter-darkest text-specter-muted'
-              }`}
-            >
-              1. IDLE
-            </span>
-            <ArrowRight className="h-3 w-3 text-specter-muted" />
-
-            <span
-              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                pipelineState === 'SCREENING'
-                  ? 'bg-specter-cyan/20 text-specter-cyan border border-specter-cyan/40 animate-pulse'
-                  : 'bg-specter-darkest text-specter-muted'
-              }`}
-            >
-              2. REFLEX GATE (&lt;100µs)
-            </span>
-            <ArrowRight className="h-3 w-3 text-specter-muted" />
-
-            <span
-              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                pipelineState === 'TRACING'
-                  ? 'bg-specter-cyan/20 text-specter-cyan border border-specter-cyan/40 animate-pulse'
-                  : 'bg-specter-darkest text-specter-muted'
-              }`}
-            >
-              3. GRAPH TRACER
-            </span>
-            <ArrowRight className="h-3 w-3 text-specter-muted" />
-
-            <span
-              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                pipelineState === 'EVIDENCE_COMPILED'
-                  ? 'bg-specter-emerald/20 text-specter-emerald border border-specter-emerald/40'
-                  : 'bg-specter-darkest text-specter-muted'
-              }`}
-            >
-              4. EVIDENCE COMPILED
-            </span>
-            <ArrowRight className="h-3 w-3 text-specter-muted" />
-
-            <span
-              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                pipelineState === 'AWAITING_HUMAN_SIGN'
-                  ? 'bg-specter-gold text-black border border-specter-gold animate-bounce font-extrabold'
-                  : 'bg-specter-darkest text-specter-muted'
-              }`}
-            >
-              5. HITL CHECKPOINT
-            </span>
-            <ArrowRight className="h-3 w-3 text-specter-muted" />
-
-            <span
-              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                pipelineState === 'COMPLETED'
-                  ? 'bg-specter-emerald text-black border border-specter-emerald font-extrabold'
-                  : 'bg-specter-darkest text-specter-muted'
-              }`}
-            >
-              6. WARRANT ISSUED
-            </span>
+          <div className="sv-sidebar-note">
+            <div className="sv-sidebar-note-icon"><LockKeyhole size={16} /></div>
+            <strong>Human-led response</strong>
+            <p>Critical actions require officer review and approval.</p>
           </div>
-        </div>
+          <div className="sv-sidebar-foot">SPECTER VEROAI <span>v1.0</span></div>
+        </aside>
 
-        {/* Input Bar */}
-        <InputBar onTrace={handleTrace} loading={loading} />
-
-        {/* System 1 Reflex Gate Metric Banner */}
-        {trace && <ReflexMetric reflex={trace.system1_reflex} />}
-
-        {/* Voice Alert Banner */}
-        {trace && voiceAlert && (
-          <VoiceAlertBanner alert={voiceAlert} caseId={trace.case_id} />
-        )}
-
-        {/* Main Forensic Grid */}
-        {trace && (
-          <div className="space-y-6">
-            {/* Hop Graph Visualizer */}
-            <HopGraph graph={trace.graph} />
-
-            {/* Terminal VASP Action Bar */}
-            {trace.tracing_summary.destination_vasp && (
-              <div className="bg-gradient-to-r from-specter-card via-specter-darkest to-specter-card border border-specter-cyan/30 rounded-xl p-5 shadow-2xl relative overflow-hidden">
-                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3.5">
-                    <div className="h-12 w-12 rounded-xl bg-specter-cyan/15 border border-specter-cyan/40 flex items-center justify-center text-specter-cyan shadow-neon-cyan shrink-0">
-                      <Building2 className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-mono font-bold tracking-widest uppercase px-2 py-0.5 rounded bg-specter-cyan/20 text-specter-cyan border border-specter-cyan/40">
-                          TERMINAL VASP IDENTIFIED
-                        </span>
-                        <span className="text-xs font-mono text-specter-emerald font-semibold">
-                          {trace.tracing_summary.destination_vasp.confidence_score}% Attribution
-                        </span>
-                      </div>
-                      <h3 className="text-lg font-bold font-mono text-white mt-0.5">
-                        {trace.tracing_summary.destination_vasp.name} —{' '}
-                        {trace.tracing_summary.destination_vasp.cluster_type}
-                      </h3>
-                      <div className="flex items-center gap-2 text-xs font-mono text-specter-muted mt-0.5">
-                        <span>Deposit Address:</span>
-                        <span className="text-specter-gold font-bold">
-                          {trace.tracing_summary.destination_vasp.deposit_address}
-                        </span>
-                        <span>&bull;</span>
-                        <span className="text-specter-crimson font-bold">
-                          Sweeps in ~{trace.tracing_summary.destination_vasp.sweep_time_minutes} mins
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Primary Action Buttons */}
-                  <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-end">
-                    {/* SAHYOG Statutory Package Button */}
-                    <button
-                      onClick={handleOpenSahyog}
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-specter-card hover:bg-specter-hover border border-specter-border hover:border-amber-500/50 text-white font-mono text-xs font-semibold transition-all"
-                    >
-                      <Landmark className="h-4 w-4 text-amber-400" />
-                      <span>MHA SAHYOG PACKAGE</span>
-                    </button>
-
-                    {/* Agentic Browser Freeze Button */}
-                    <button
-                      onClick={handlePrepareFreeze}
-                      className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-specter-gold to-amber-500 hover:from-specter-gold hover:to-amber-400 text-black font-mono font-bold text-xs tracking-wider transition-all shadow-lg hover:shadow-neon-gold"
-                    >
-                      <Lock className="h-4 w-4" />
-                      <span>PREPARE STATUTORY FREEZE (AGENT BROWSER)</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Split Analytics Cards */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Typologies Card */}
-              <TypologiesCard typologies={trace.typologies} />
-
-              {/* Velocity & Burst Analytics Card */}
-              <VelocityCard velocity={trace.velocity} />
-            </div>
-
-            {/* Cryptographic Evidence Card */}
-            <EvidenceCard evidence={trace.evidence_bundle} />
-          </div>
-        )}
-
-        {/* Empty / Initial State Greeting when no trace has run */}
-        {!trace && (
-          <div className="bg-specter-card/50 border border-specter-border/80 rounded-2xl p-10 text-center max-w-2xl mx-auto space-y-4">
-            <div className="h-16 w-16 rounded-2xl bg-specter-cyan/10 border border-specter-cyan/30 flex items-center justify-center text-specter-cyan mx-auto shadow-neon-cyan">
-              <ShieldAlert className="h-8 w-8 animate-pulse" />
-            </div>
+        <main className="sv-main" id="overview">
+          <section className="sv-welcome">
             <div>
-              <h3 className="text-lg font-bold font-mono text-white">
-                SPECTER AUTONOMOUS ON-CHAIN COMMAND CENTER
-              </h3>
-              <p className="text-xs text-specter-muted mt-1 leading-relaxed">
-                Sub-100 microsecond System 1 reflex screening, multi-hop peel-chain graph reconstruction, EGRE financial crime typologies, fund flow velocity analytics, BLAKE3 Merkle evidence compilation, and Human-in-the-Loop browser agent automation.
-              </p>
+              <div className="sv-eyebrow"><span className="sv-eyebrow-dot" /> INCIDENT RESPONSE PLATFORM</div>
+              <h1>Forensic command center</h1>
+              <p>Investigate suspicious fund flows, identify off-ramps, and compile verifiable evidence in one workspace.</p>
             </div>
-            <div className="pt-2">
-              <button
-                onClick={() =>
-                  handleTrace(
-                    '0x4a8b7c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b',
-                    '0x71c6bfb575a35b50e76ec92432dd2741b23ac3a9',
-                    'ethereum',
-                    4
-                  )
-                }
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-specter-cyan to-blue-600 hover:from-specter-cyan hover:to-blue-500 text-black font-mono font-bold text-xs tracking-wider transition-all shadow-xl hover:shadow-neon-cyan"
-              >
-                <span>EXECUTE 90-SECOND STAGE DEMO INCIDENT</span>
-                <ArrowRight className="h-4 w-4" />
+            <div className="sv-welcome-actions">
+              <span className={`sv-connection-pill ${healthOnline ? 'is-online' : ''}`}>
+                <span className="sv-status-dot" /> {healthOnline ? 'Systems operational' : 'Waiting for backend'}
+              </span>
+              <button className="sv-quiet-button" onClick={() => window.location.reload()} title="Refresh dashboard">
+                <RefreshCw size={15} /> Refresh
               </button>
             </div>
-          </div>
-        )}
-      </main>
+          </section>
 
-      {/* Human-in-the-Loop Modal */}
+          <section className="sv-stat-grid" aria-label="System overview metrics">
+            <article className="sv-stat-card">
+              <div className="sv-stat-top"><span>REFLEX LATENCY</span><span className="sv-stat-icon blue"><Zap size={17} /></span></div>
+              <div className="sv-stat-value">{trace?.system1_reflex?.latency_us ?? health?.system1_latency_p99_us ?? '—'} <small>µs</small></div>
+              <div className="sv-stat-foot"><span className="sv-mini-check"><BadgeCheck size={13} /></span> Target under 100 µs</div>
+              <div className="sv-stat-track"><span style={{ width: `${Math.min(100, ((trace?.system1_reflex?.latency_us ?? health?.system1_latency_p99_us ?? 0) / 100) * 100)}%` }} /></div>
+            </article>
+            <article className="sv-stat-card">
+              <div className="sv-stat-top"><span>WALLETS / NODES</span><span className="sv-stat-icon violet"><Network size={17} /></span></div>
+              <div className="sv-stat-value">{trace ? graphNodes : '—'} <small>{trace ? 'nodes' : 'awaiting trace'}</small></div>
+              <div className="sv-stat-foot"><span className="sv-stat-neutral">{trace ? `${graphEdges} connections mapped` : 'Run a trace to populate'}</span></div>
+              <div className="sv-stat-track violet-track"><span style={{ width: `${trace ? Math.min(100, graphNodes * 8) : 8}%` }} /></div>
+            </article>
+            <article className="sv-stat-card">
+              <div className="sv-stat-top"><span>VELOCITY RISK</span><span className="sv-stat-icon amber"><Gauge size={17} /></span></div>
+              <div className="sv-stat-value">{typeof riskScore === 'number' ? riskScore : '—'}<small>{typeof riskScore === 'number' ? '/100' : ' score'}</small></div>
+              <div className="sv-stat-foot"><span className={trace?.velocity?.is_burst_drainer ? 'sv-risk-text' : 'sv-stat-neutral'}>{trace?.velocity?.is_burst_drainer ? 'Burst activity detected' : trace ? 'Velocity analysis complete' : 'Awaiting analysis'}</span></div>
+              <div className="sv-stat-track amber-track"><span style={{ width: `${typeof riskScore === 'number' ? Math.max(0, Math.min(100, riskScore)) : 0}%` }} /></div>
+            </article>
+            <article className="sv-stat-card">
+              <div className="sv-stat-top"><span>TYPOLOGIES</span><span className="sv-stat-icon green"><Fingerprint size={17} /></span></div>
+              <div className="sv-stat-value">{trace?.typologies?.length ?? '—'} <small>{trace ? 'findings' : 'detected'}</small></div>
+              <div className="sv-stat-foot"><span className="sv-mini-check"><ShieldCheck size={13} /></span> Pattern classification</div>
+              <div className="sv-stat-track green-track"><span style={{ width: `${trace ? Math.min(100, trace.typologies.length * 20) : 0}%` }} /></div>
+            </article>
+          </section>
+
+          <section className="sv-panel sv-pipeline" aria-label="Incident pipeline">
+            <div className="sv-section-heading">
+              <div><span className="sv-section-kicker">LIVE WORKFLOW</span><h2>Response pipeline</h2></div>
+              <span className={`sv-state-badge ${pipelineState === 'COMPLETED' ? 'complete' : pipelineState === 'AWAITING_HUMAN_SIGN' ? 'pending' : ''}`}>
+                <span className="sv-status-dot" /> {pipelineState.replace(/_/g, ' ')}
+              </span>
+            </div>
+            <div className="sv-step-track">
+              {pipelineSteps.map((step, index) => {
+                const done = currentStep > index || pipelineState === 'COMPLETED';
+                const active = currentStep === index;
+                return (
+                  <div className={`sv-step ${done ? 'done' : ''} ${active ? 'current' : ''}`} key={step.key}>
+                    <div className="sv-step-circle">{done ? <BadgeCheck size={15} /> : index + 1}</div>
+                    <span>{step.label}</span>
+                    {index < pipelineSteps.length - 1 && <div className="sv-step-connector" />}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section id="incident" className="sv-incident-section">
+            <div className="sv-section-title-row">
+              <div><span className="sv-section-kicker">NEW INVESTIGATION</span><h2>Incident triage</h2></div>
+              <span className="sv-secure-label"><ShieldCheck size={14} /> Secure API workflow</span>
+            </div>
+            <InputBar onTrace={handleTrace} loading={loading} />
+          </section>
+
+          {loading && (
+            <div className="sv-loading-banner"><span className="sv-spinner" /><div><strong>Analyzing incident</strong><span>Tracing transaction hops and compiling forensic signals…</span></div></div>
+          )}
+
+          {trace && (
+            <div id="trace-results" className="sv-results">
+              <div className="sv-section-title-row">
+                <div><span className="sv-section-kicker">INVESTIGATION OUTPUT</span><h2>Trace analysis</h2></div>
+                <span className="sv-case-id">CASE {trace.case_id}</span>
+              </div>
+
+              <ReflexMetric reflex={trace.system1_reflex} />
+
+              {voiceAlert && <VoiceAlertBanner alert={voiceAlert} caseId={trace.case_id} />}
+
+              <section className="sv-panel sv-graph-panel">
+                <div className="sv-section-heading">
+                  <div><span className="sv-section-kicker">ON-CHAIN FORENSICS</span><h2>Fund movement graph</h2><p>Follow the path from the victim wallet to the identified destination.</p></div>
+                  <div className="sv-graph-legend"><span><i className="legend-victim" /> Origin</span><span><i className="legend-hop" /> Transfer hop</span><span><i className="legend-vasp" /> Exchange / VASP</span></div>
+                </div>
+                <HopGraph graph={trace.graph} />
+              </section>
+
+              {trace.tracing_summary.destination_vasp && (
+                <section className="sv-vasp-card">
+                  <div className="sv-vasp-icon"><Building2 size={23} /></div>
+                  <div className="sv-vasp-content">
+                    <div className="sv-vasp-kicker">TERMINAL VASP IDENTIFIED <span>{trace.tracing_summary.destination_vasp.confidence_score}% attribution</span></div>
+                    <h3>{trace.tracing_summary.destination_vasp.name} <span>· {trace.tracing_summary.destination_vasp.cluster_type}</span></h3>
+                    <div className="sv-vasp-details"><span>Deposit address</span><code>{trace.tracing_summary.destination_vasp.deposit_address}</code>{trace.tracing_summary.destination_vasp.sweep_time_minutes != null && <span className="sv-sweep-time">Sweep estimate: ~{trace.tracing_summary.destination_vasp.sweep_time_minutes} min</span>}</div>
+                  </div>
+                  <div className="sv-vasp-actions">
+                    <button className="sv-secondary-action" onClick={handleOpenSahyog}><Landmark size={16} /> SAHYOG package</button>
+                    <button className="sv-primary-action" onClick={handlePrepareFreeze} disabled={loading}><LockKeyhole size={16} /> Prepare freeze</button>
+                  </div>
+                </section>
+              )}
+
+              <div className="sv-analytics-grid">
+                <TypologiesCard typologies={trace.typologies} />
+                <VelocityCard velocity={trace.velocity} />
+              </div>
+              <div id="evidence"><EvidenceCard evidence={trace.evidence_bundle} /></div>
+
+              {warrantReceipt && (
+                <div className="sv-success-receipt"><BadgeCheck size={19} /><div><strong>Approval workflow completed</strong><span>Warrant {warrantReceipt.warrant_id} · {warrantReceipt.target_account_status}</span></div></div>
+              )}
+            </div>
+          )}
+
+          {!trace && !loading && (
+            <section className="sv-empty-state">
+              <div className="sv-empty-art">
+                <div className="sv-orbit orbit-one" /><div className="sv-orbit orbit-two" />
+                <div className="sv-empty-core"><ShieldAlert size={32} /></div>
+                <span className="sv-node node-a" /><span className="sv-node node-b" /><span className="sv-node node-c" />
+              </div>
+              <span className="sv-section-kicker">READY FOR INVESTIGATION</span>
+              <h2>Your next case starts here</h2>
+              <p>Submit a transaction hash and victim wallet above to start the forensic workflow. The dashboard will populate with trace paths, risk signals, velocity analysis, and a cryptographic evidence dossier.</p>
+              <button className="sv-primary-action sv-demo-button" onClick={() => void handleTrace(DEMO_TX, DEMO_WALLET, 'ethereum', 4)}>
+                <Sparkles size={16} /> Run demo incident <ArrowRight size={16} />
+              </button>
+              <div className="sv-empty-capabilities">
+                <div><Network size={17} /><span>Multi-hop tracing</span></div>
+                <div><ChartNoAxesCombined size={17} /><span>Risk analytics</span></div>
+                <div><FileCheck2 size={17} /><span>Verifiable evidence</span></div>
+              </div>
+            </section>
+          )}
+
+          <footer className="sv-footer">
+            <span>© SPECTER VEROAI <b>·</b> Rust core + agentic browser</span>
+            <span><CircleHelp size={13} /> Automate the forensics; empower the human.</span>
+          </footer>
+        </main>
+      </div>
+
       {trace && (
         <HitlModal
           isOpen={isHitlOpen}
           onClose={() => setIsHitlOpen(false)}
           caseId={trace.case_id}
           targetVasp={trace.tracing_summary.destination_vasp?.name || 'Binance'}
-          depositAddress={
-            trace.tracing_summary.destination_vasp?.deposit_address ||
-            '0x3f5ce5fb59e02f43cf8d1326be81a329d448181a'
-          }
+          depositAddress={trace.tracing_summary.destination_vasp?.deposit_address || '0x3f5ce5fb59e02f43cf8d1326be81a329d448181a'}
           claimValue={`$${(trace.tracing_summary.initial_loss_usd - 1000).toLocaleString()} USDT`}
           merkleProof={trace.evidence_bundle.merkle_root}
           onWarrantIssued={handleWarrantIssued}
         />
       )}
-
-      {/* MHA SAHYOG Statutory Package Modal */}
       {trace && (
         <SahyogModal
           isOpen={isSahyogOpen}
@@ -357,16 +336,6 @@ export function App() {
           initialPackage={sahyogPackage}
         />
       )}
-
-      {/* Footer */}
-      <footer className="border-t border-specter-border bg-specter-darkest py-4 px-4 text-center text-xs font-mono text-specter-muted mt-auto">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>SPECTER v1.0 &bull; Hackathon Security Track &bull; Rust Core + Agentic Browser</span>
-          <span className="text-[11px] text-gray-500">
-            Automate the forensics; empower the human.
-          </span>
-        </div>
-      </footer>
     </div>
   );
 }
