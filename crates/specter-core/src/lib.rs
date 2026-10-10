@@ -9,6 +9,7 @@ pub mod system1;
 pub mod typologies;
 pub mod vasp;
 pub mod velocity;
+pub mod voice;
 
 pub use chain::{ChainDetector, ChainType};
 pub use graph::{ForensicGraph, GraphEdge, GraphNode, PeelChainTracer, TracingSummary};
@@ -22,6 +23,7 @@ pub use system1::{ReflexScreeningResult, System1ReflexGate, ThreatClass};
 pub use typologies::{TypologyDetector, TypologyFinding};
 pub use vasp::{EntityRole, VaspClusterRegistry, VaspHeuristicScores, VaspIdentity};
 pub use velocity::{RollingWindowMetric, VelocityAnalysis, VelocityAnalyzer};
+pub use voice::{VoiceAlertDispatcher, VoiceAlertPayload};
 
 #[cfg(test)]
 mod tests {

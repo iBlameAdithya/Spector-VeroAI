@@ -240,3 +240,65 @@ async fn test_sahyog_package_generation_and_fetch() {
     let json_get: Value = serde_json::from_slice(&body_get).unwrap();
     assert_eq!(json_get["case_id"], "SPECTER-2026-9921");
 }
+
+#[tokio::test]
+async fn test_voice_alert_and_chime_endpoints() {
+    let state = Arc::new(AppState::new());
+    let app = create_app(state);
+
+    // 1. Run trace to register case
+    let trace_payload = json!({
+        "stolen_tx_hash": "0x4a8b7c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b",
+        "victim_wallet": "0x71c6bfb575a35b50e76ec92432dd2741b23ac3a9",
+        "chain": "ethereum",
+        "max_hops": 4
+    });
+
+    let req_trace = Request::builder()
+        .uri("/api/v1/trace")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(serde_json::to_vec(&trace_payload).unwrap()))
+        .unwrap();
+
+    let res_trace = app.clone().oneshot(req_trace).await.unwrap();
+    assert_eq!(res_trace.status(), StatusCode::OK);
+
+    // 2. Test Voice Alert dispatch endpoint
+    let req_voice = Request::builder()
+        .uri("/api/v1/voice/alert/SPECTER-2026-9921")
+        .method("GET")
+        .body(Body::empty())
+        .unwrap();
+
+    let res_voice = app.clone().oneshot(req_voice).await.unwrap();
+    assert_eq!(res_voice.status(), StatusCode::OK);
+
+    let body_voice = res_voice.into_body().collect().await.unwrap().to_bytes();
+    let json_voice: Value = serde_json::from_slice(&body_voice).unwrap();
+
+    assert_eq!(json_voice["case_id"], "SPECTER-2026-9921");
+    assert!(json_voice["transcript"].as_str().unwrap().contains("SPECTER Priority Alert"));
+    assert_eq!(json_voice["audio_format"], "audio/wav");
+    assert_eq!(json_voice["priority_level"], "CRITICAL_INTERVENTION_REQUIRED");
+
+    // 3. Test Voice Chime WAV generator
+    let req_chime = Request::builder()
+        .uri("/api/v1/voice/chime")
+        .method("GET")
+        .body(Body::empty())
+        .unwrap();
+
+    let res_chime = app.oneshot(req_chime).await.unwrap();
+    assert_eq!(res_chime.status(), StatusCode::OK);
+    assert_eq!(
+        res_chime.headers().get("content-type").unwrap(),
+        "audio/wav"
+    );
+
+    let body_chime = res_chime.into_body().collect().await.unwrap().to_bytes();
+    assert!(body_chime.len() > 44);
+    assert_eq!(&body_chime[0..4], b"RIFF");
+    assert_eq!(&body_chime[8..12], b"WAVE");
+}
+

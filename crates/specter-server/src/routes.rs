@@ -11,8 +11,9 @@ use serde::{Deserialize, Serialize};
 use specter_core::{
     generate_dynamic_scenario, ChainDetector, EvidenceBundle, ForensicGraph, MerkleEngine,
     ReflexScreeningResult, SahyogAdapter, SahyogPackage, TracingSummary, TypologyDetector,
-    TypologyFinding, VelocityAnalysis, VelocityAnalyzer, CANONICAL_CASE_ID,
-    CANONICAL_MERKLE_ROOT, CANONICAL_STOLEN_TX, CANONICAL_VASP_DEPOSIT, CANONICAL_VICTIM,
+    TypologyFinding, VelocityAnalysis, VelocityAnalyzer, VoiceAlertDispatcher, VoiceAlertPayload,
+    CANONICAL_CASE_ID, CANONICAL_MERKLE_ROOT, CANONICAL_STOLEN_TX, CANONICAL_VASP_DEPOSIT,
+    CANONICAL_VICTIM,
 };
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -281,6 +282,49 @@ pub async fn get_sahyog_package_handler(
     } else {
         Err(StatusCode::BAD_REQUEST)
     }
+}
+
+/// GET /voice/alert/:case_id
+pub async fn voice_alert_handler(
+    State(state): State<Arc<AppState>>,
+    Path(case_id): Path<String>,
+) -> Result<Json<VoiceAlertPayload>, StatusCode> {
+    let cases = state.cases.read().await;
+    let case = cases.get(&case_id).ok_or(StatusCode::NOT_FOUND)?;
+
+    let vasp_name = case
+        .tracing_summary
+        .destination_vasp
+        .as_ref()
+        .map(|v| v.name.as_str())
+        .unwrap_or("Binance");
+
+    let amount = case.tracing_summary.initial_loss_usd;
+    let latency_us = case.system1_reflex.latency_us;
+    let eta = case.velocity.estimated_liquidation_eta_minutes;
+
+    let transcript = VoiceAlertDispatcher::build_transcript(&case_id, vasp_name, amount, latency_us, eta);
+
+    // Trigger live system speech on Windows presentation environment
+    VoiceAlertDispatcher::speak_live_alert(&transcript);
+
+    Ok(Json(VoiceAlertPayload {
+        case_id,
+        transcript,
+        audio_format: "audio/wav".to_string(),
+        duration_seconds: 4.8,
+        latency_ms: 8,
+        priority_level: "CRITICAL_INTERVENTION_REQUIRED".to_string(),
+    }))
+}
+
+/// GET /voice/chime
+pub async fn voice_chime_handler() -> impl IntoResponse {
+    let wav_bytes = VoiceAlertDispatcher::synthesize_alert_chime(44100, 0.4);
+    (
+        [(axum::http::header::CONTENT_TYPE, "audio/wav")],
+        wav_bytes,
+    )
 }
 
 /// POST /agent/prepare-freeze

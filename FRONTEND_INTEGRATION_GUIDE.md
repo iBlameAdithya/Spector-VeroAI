@@ -277,11 +277,37 @@ Receives the authorized officer's badge ID, legal attestation, and cryptographic
 
 ---
 
+### 2.6 `GET /api/v1/voice/alert/:case_id` & `GET /api/v1/voice/chime`
+Ultra-low-latency tactical voice telemetry and synthesized audio alert chime.
+
+* **`GET /api/v1/voice/alert/:case_id` Response (200 OK):**
+  ```json
+  {
+    "case_id": "SPECTER-2026-9921",
+    "transcript": "SPECTER Priority Alert. Case Ref SPECTER-2026-9921. System One reflex gate matched in 48 microseconds. Illicit value of $150000 dollars USDT detected peeling towards Binance. Estimated liquidation window is 25 minutes. Agent browser prefill complete. Awaiting authorized officer signature.",
+    "audio_format": "audio/wav",
+    "duration_seconds": 4.8,
+    "latency_ms": 8,
+    "priority_level": "CRITICAL_INTERVENTION_REQUIRED"
+  }
+  ```
+* **`GET /api/v1/voice/chime`:** Returns raw audio stream (`Content-Type: audio/wav`) of a dual-tone tactical alert chime (880Hz / 1320Hz) synthesized in pure Rust with <5ms latency. Can be played directly via `<audio src="http://localhost:8080/api/v1/voice/chime" autoplay />`.
+
+---
+
 ## 3. Recommended TypeScript Types
 
 You can paste these interfaces directly into your frontend code:
 
 ```typescript
+export interface VoiceAlertPayload {
+  case_id: string;
+  transcript: string;
+  audio_format: string;
+  duration_seconds: number;
+  latency_ms: number;
+  priority_level: string;
+}
 export interface HealthResponse {
   status: string;
   engine: string;

@@ -26,6 +26,8 @@ pub fn create_app(state: Arc<AppState>) -> Router {
         .route("/agent/sign-and-submit", post(routes::sign_and_submit_handler))
         .route("/sahyog/package", post(routes::sahyog_package_handler))
         .route("/sahyog/package/:case_id", get(routes::get_sahyog_package_handler))
+        .route("/voice/alert/:case_id", get(routes::voice_alert_handler))
+        .route("/voice/chime", get(routes::voice_chime_handler))
         // Prefixed /api/v1 routes
         .route("/api/v1/health", get(routes::health_handler))
         .route("/api/v1/trace", post(routes::trace_handler))
@@ -33,6 +35,8 @@ pub fn create_app(state: Arc<AppState>) -> Router {
         .route("/api/v1/agent/sign-and-submit", post(routes::sign_and_submit_handler))
         .route("/api/v1/sahyog/package", post(routes::sahyog_package_handler))
         .route("/api/v1/sahyog/package/:case_id", get(routes::get_sahyog_package_handler))
+        .route("/api/v1/voice/alert/:case_id", get(routes::voice_alert_handler))
+        .route("/api/v1/voice/chime", get(routes::voice_chime_handler))
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         .with_state(state)
