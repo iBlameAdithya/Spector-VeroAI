@@ -1,1 +1,1 @@
-# Spector-VeroAI See Beyond Blockchain
+# Spector-VeroAI See Beyond Blockchain.
