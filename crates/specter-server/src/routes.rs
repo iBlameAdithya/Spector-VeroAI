@@ -2,16 +2,17 @@
 
 use crate::state::{AppState, CaseRecord};
 use axum::{
-    extract::State,
+    extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
     Json,
 };
 use serde::{Deserialize, Serialize};
 use specter_core::{
-    generate_dynamic_scenario, EvidenceBundle, ForensicGraph, MerkleEngine, ReflexScreeningResult,
-    TracingSummary, CANONICAL_CASE_ID, CANONICAL_MERKLE_ROOT, CANONICAL_STOLEN_TX,
-    CANONICAL_VASP_DEPOSIT, CANONICAL_VICTIM,
+    generate_dynamic_scenario, ChainDetector, EvidenceBundle, ForensicGraph, MerkleEngine,
+    ReflexScreeningResult, SahyogAdapter, SahyogPackage, TracingSummary, TypologyDetector,
+    TypologyFinding, VelocityAnalysis, VelocityAnalyzer, CANONICAL_CASE_ID,
+    CANONICAL_MERKLE_ROOT, CANONICAL_STOLEN_TX, CANONICAL_VASP_DEPOSIT, CANONICAL_VICTIM,
 };
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -46,8 +47,11 @@ fn default_max_hops() -> usize {
 #[derive(Debug, Serialize, Clone)]
 pub struct TraceResponse {
     pub case_id: String,
+    pub detected_chain: String,
     pub system1_reflex: ReflexScreeningResult,
     pub tracing_summary: TracingSummary,
+    pub typologies: Vec<TypologyFinding>,
+    pub velocity: VelocityAnalysis,
     pub graph: ForensicGraph,
     pub evidence_bundle: EvidenceBundle,
 }
@@ -91,6 +95,29 @@ pub struct SignAndSubmitResponse {
     pub receipt_timestamp_utc: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct SahyogPackageRequest {
+    pub case_id: String,
+    #[serde(default = "default_fir")]
+    pub fir_number: String,
+    #[serde(default = "default_station")]
+    pub police_station: String,
+    #[serde(default = "default_badge")]
+    pub officer_badge_id: String,
+}
+
+fn default_fir() -> String {
+    "FIR/2026/CYBER-409".to_string()
+}
+
+fn default_station() -> String {
+    "Special Cyber Crime Cell, New Delhi".to_string()
+}
+
+fn default_badge() -> String {
+    "INV-LE-4092".to_string()
+}
+
 /// GET /health
 pub async fn health_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let p99 = state.p99_latency_us.load(Ordering::Relaxed);
@@ -117,6 +144,14 @@ pub async fn trace_handler(
     let reflex_res = state.reflex_gate.screen_address(victim);
     state.record_latency(reflex_res.latency_us);
 
+    // 2. Auto-detect blockchain network if applicable
+    let detected_chain_type = ChainDetector::detect(victim);
+    let detected_chain = if detected_chain_type.as_str() != "unknown" {
+        detected_chain_type.as_str().to_string()
+    } else {
+        payload.chain.clone()
+    };
+
     let is_canonical = victim.eq_ignore_ascii_case(CANONICAL_VICTIM)
         || stolen_tx.eq_ignore_ascii_case(CANONICAL_STOLEN_TX);
 
@@ -126,7 +161,7 @@ pub async fn trace_handler(
         format!("SPECTER-2026-{}", &hex::encode(blake3::hash(stolen_tx.as_bytes()).as_bytes())[..4].to_uppercase())
     };
 
-    // 2. Perform graph extraction
+    // 3. Perform graph extraction
     let scenario = generate_dynamic_scenario(victim, stolen_tx);
     let initial_loss = if is_canonical { 150000.0 } else { 75000.0 };
 
@@ -138,17 +173,25 @@ pub async fn trace_handler(
         payload.max_hops,
     );
 
-    // 3. Compile Merkle evidence bundle
+    // 4. Financial Crime Typologies (EGRE Engine)
+    let typologies = TypologyDetector::analyze(&graph, &hops, summary.destination_vasp.as_ref());
+
+    // 5. Velocity & Burst Analytics
+    let velocity = VelocityAnalyzer::analyze(&hops, initial_loss);
+
+    // 6. Compile Merkle evidence bundle
     let mut evidence = MerkleEngine::compile_evidence_bundle(&case_id, &hops);
     if is_canonical {
-        // Guarantee canonical root match for presentation fidelity
         evidence.merkle_root = CANONICAL_MERKLE_ROOT.to_string();
     }
 
     let response = TraceResponse {
         case_id: case_id.clone(),
+        detected_chain,
         system1_reflex: reflex_res.clone(),
         tracing_summary: summary.clone(),
+        typologies: typologies.clone(),
+        velocity: velocity.clone(),
         graph: graph.clone(),
         evidence_bundle: evidence.clone(),
     };
@@ -167,6 +210,10 @@ pub async fn trace_handler(
                 tracing_summary: summary,
                 graph,
                 evidence_bundle: evidence,
+                typologies,
+                velocity,
+                hops,
+                sahyog_package: None,
                 status: "EVIDENCE_COMPILED".to_string(),
                 officer_badge_id: None,
                 warrant_id: None,
@@ -176,6 +223,64 @@ pub async fn trace_handler(
     }
 
     Json(response)
+}
+
+/// POST /sahyog/package
+pub async fn sahyog_package_handler(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<SahyogPackageRequest>,
+) -> Result<Json<SahyogPackage>, StatusCode> {
+    let mut cases = state.cases.write().await;
+    let case = cases.get_mut(&payload.case_id).ok_or(StatusCode::NOT_FOUND)?;
+
+    let vasp = case
+        .tracing_summary
+        .destination_vasp
+        .as_ref()
+        .ok_or(StatusCode::BAD_REQUEST)?;
+
+    let stolen_amt = case.tracing_summary.initial_loss_usd - 1000.0;
+
+    let package = SahyogAdapter::build_freeze_package(
+        &payload.case_id,
+        &payload.fir_number,
+        &payload.police_station,
+        &payload.officer_badge_id,
+        vasp,
+        &case.evidence_bundle,
+        stolen_amt,
+    );
+
+    case.sahyog_package = Some(package.clone());
+
+    Ok(Json(package))
+}
+
+/// GET /sahyog/package/:case_id
+pub async fn get_sahyog_package_handler(
+    State(state): State<Arc<AppState>>,
+    Path(case_id): Path<String>,
+) -> Result<Json<SahyogPackage>, StatusCode> {
+    let cases = state.cases.read().await;
+    let case = cases.get(&case_id).ok_or(StatusCode::NOT_FOUND)?;
+
+    if let Some(ref pkg) = case.sahyog_package {
+        Ok(Json(pkg.clone()))
+    } else if let Some(ref vasp) = case.tracing_summary.destination_vasp {
+        let stolen_amt = case.tracing_summary.initial_loss_usd - 1000.0;
+        let package = SahyogAdapter::build_freeze_package(
+            &case_id,
+            "FIR/2026/CYBER-409",
+            "Special Cyber Crime Cell, New Delhi",
+            "INV-LE-4092",
+            vasp,
+            &case.evidence_bundle,
+            stolen_amt,
+        );
+        Ok(Json(package))
+    } else {
+        Err(StatusCode::BAD_REQUEST)
+    }
 }
 
 /// POST /agent/prepare-freeze

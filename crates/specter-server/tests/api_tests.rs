@@ -34,7 +34,7 @@ async fn test_get_health_endpoint() {
 }
 
 #[tokio::test]
-async fn test_post_trace_canonical_incident() {
+async fn test_post_trace_canonical_incident_with_typologies_and_velocity() {
     let state = Arc::new(AppState::new());
     let app = create_app(state);
 
@@ -58,8 +58,9 @@ async fn test_post_trace_canonical_incident() {
     let body = res.into_body().collect().await.unwrap().to_bytes();
     let json_val: Value = serde_json::from_slice(&body).unwrap();
 
-    // Verify Case ID
+    // Verify Case ID & Chain Detection
     assert_eq!(json_val["case_id"], "SPECTER-2026-9921");
+    assert_eq!(json_val["detected_chain"], "ethereum");
 
     // Verify System 1 Reflex
     assert_eq!(json_val["system1_reflex"]["is_instant_threat"], true);
@@ -80,6 +81,18 @@ async fn test_post_trace_canonical_incident() {
         "0x3f5ce5fb59e02f43cf8d1326be81a329d448181a"
     );
     assert_eq!(vasp["confidence_score"], 98.4);
+
+    // Verify Typologies (EGRE Detection)
+    let typologies = json_val["typologies"].as_array().unwrap();
+    assert!(!typologies.is_empty());
+    assert!(typologies.iter().any(|t| t["typology_name"].as_str().unwrap().contains("PEEL")));
+    assert!(typologies.iter().any(|t| t["typology_name"].as_str().unwrap().contains("VASP")));
+
+    // Verify Velocity Analysis
+    let velocity = &json_val["velocity"];
+    assert_eq!(velocity["hop_count"], 3);
+    assert_eq!(velocity["is_burst_drainer"], true);
+    assert_eq!(velocity["rolling_windows"].as_array().unwrap().len(), 5);
 
     // Verify Merkle Evidence Bundle
     let evidence = &json_val["evidence_bundle"];
@@ -162,4 +175,68 @@ async fn test_post_prepare_and_submit_freeze() {
         json_submit["target_account_status"],
         "FREEZE_APPLIED_TEMPORARY_HOLD"
     );
+}
+
+#[tokio::test]
+async fn test_sahyog_package_generation_and_fetch() {
+    let state = Arc::new(AppState::new());
+    let app = create_app(state);
+
+    // 1. First run trace to register the case in state
+    let trace_payload = json!({
+        "stolen_tx_hash": "0x4a8b7c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b",
+        "victim_wallet": "0x71c6bfb575a35b50e76ec92432dd2741b23ac3a9",
+        "chain": "ethereum",
+        "max_hops": 4
+    });
+
+    let req_trace = Request::builder()
+        .uri("/api/v1/trace")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(serde_json::to_vec(&trace_payload).unwrap()))
+        .unwrap();
+
+    let res_trace = app.clone().oneshot(req_trace).await.unwrap();
+    assert_eq!(res_trace.status(), StatusCode::OK);
+
+    // 2. Generate SAHYOG package
+    let sahyog_payload = json!({
+        "case_id": "SPECTER-2026-9921",
+        "fir_number": "FIR/2026/CYBER-409",
+        "police_station": "Special Cyber Crime Cell, New Delhi",
+        "officer_badge_id": "INV-LE-4092"
+    });
+
+    let req_sahyog = Request::builder()
+        .uri("/api/v1/sahyog/package")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(serde_json::to_vec(&sahyog_payload).unwrap()))
+        .unwrap();
+
+    let res_sahyog = app.clone().oneshot(req_sahyog).await.unwrap();
+    assert_eq!(res_sahyog.status(), StatusCode::OK);
+
+    let body_sahyog = res_sahyog.into_body().collect().await.unwrap().to_bytes();
+    let json_sahyog: Value = serde_json::from_slice(&body_sahyog).unwrap();
+
+    assert_eq!(json_sahyog["case_id"], "SPECTER-2026-9921");
+    assert_eq!(json_sahyog["target_vasp_name"], "Binance");
+    assert_eq!(json_sahyog["evidence_chain"].as_array().unwrap().len(), 7);
+    assert!(json_sahyog["formal_freeze_notice_text"].as_str().unwrap().contains("SECTION 91/94 CrPC"));
+
+    // 3. Fetch SAHYOG package by case_id
+    let req_get = Request::builder()
+        .uri("/api/v1/sahyog/package/SPECTER-2026-9921")
+        .method("GET")
+        .body(Body::empty())
+        .unwrap();
+
+    let res_get = app.oneshot(req_get).await.unwrap();
+    assert_eq!(res_get.status(), StatusCode::OK);
+
+    let body_get = res_get.into_body().collect().await.unwrap().to_bytes();
+    let json_get: Value = serde_json::from_slice(&body_get).unwrap();
+    assert_eq!(json_get["case_id"], "SPECTER-2026-9921");
 }

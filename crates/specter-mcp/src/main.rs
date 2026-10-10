@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use specter_core::{
     generate_dynamic_scenario, get_canonical_scenario, MerkleEngine, PeelChainTracer,
-    System1ReflexGate, CANONICAL_CASE_ID, CANONICAL_MERKLE_ROOT, CANONICAL_STOLEN_TX,
-    CANONICAL_VICTIM,
+    SahyogAdapter, System1ReflexGate, TypologyDetector, VelocityAnalyzer, CANONICAL_CASE_ID,
+    CANONICAL_MERKLE_ROOT, CANONICAL_STOLEN_TX, CANONICAL_VICTIM,
 };
 use std::io::{self, BufRead, Write};
 
@@ -69,6 +69,32 @@ fn get_tools_manifest() -> Value {
                         "hop_sequence": { "type": "array", "items": { "type": "string" } }
                     },
                     "required": ["case_id", "hop_sequence"]
+                }
+            },
+            {
+                "name": "specter_analyze_typologies_and_velocity",
+                "description": "Detects financial crime typologies (FAN_OUT, RAPID_PEEL, CONSOLIDATION) and computes fund flow velocity metrics.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "initial_tx_hash": { "type": "string" },
+                        "victim_wallet": { "type": "string" }
+                    },
+                    "required": ["initial_tx_hash"]
+                }
+            },
+            {
+                "name": "specter_generate_sahyog_package",
+                "description": "Formats statutory Section 91/94 CrPC & BNSS freeze notice packages for MHA I4C SAHYOG Portal dispatch.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "case_id": { "type": "string" },
+                        "fir_number": { "type": "string", "default": "FIR/2026/CYBER-409" },
+                        "police_station": { "type": "string", "default": "Special Cyber Crime Cell, New Delhi" },
+                        "officer_badge_id": { "type": "string", "default": "INV-LE-4092" }
+                    },
+                    "required": ["case_id"]
                 }
             }
         ]
@@ -162,6 +188,91 @@ fn handle_tool_call(
                 "evidence_bundle": evidence
             }))
         }
+        "specter_analyze_typologies_and_velocity" => {
+            let tx_hash = arguments
+                .get("initial_tx_hash")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| "Missing 'initial_tx_hash'".to_string())?;
+
+            let victim_addr = arguments
+                .get("victim_wallet")
+                .and_then(|v| v.as_str())
+                .unwrap_or(CANONICAL_VICTIM);
+
+            let scenario = if tx_hash.eq_ignore_ascii_case(CANONICAL_STOLEN_TX) {
+                get_canonical_scenario()
+            } else {
+                generate_dynamic_scenario(victim_addr, tx_hash)
+            };
+
+            let (graph, hops, summary) =
+                tracer.trace_transactions(victim_addr, 150000.0, "USDT", &scenario, 4);
+
+            let typologies = TypologyDetector::analyze(&graph, &hops, summary.destination_vasp.as_ref());
+            let velocity = VelocityAnalyzer::analyze(&hops, 150000.0);
+
+            let result = json!({
+                "typologies_count": typologies.len(),
+                "typologies": typologies,
+                "velocity_analysis": velocity
+            });
+
+            Ok(json!({
+                "content": [{
+                    "type": "text",
+                    "text": serde_json::to_string_pretty(&result).unwrap_or_default()
+                }]
+            }))
+        }
+        "specter_generate_sahyog_package" => {
+            let case_id = arguments
+                .get("case_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or(CANONICAL_CASE_ID);
+
+            let fir_no = arguments
+                .get("fir_number")
+                .and_then(|v| v.as_str())
+                .unwrap_or("FIR/2026/CYBER-409");
+
+            let station = arguments
+                .get("police_station")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Special Cyber Crime Cell, New Delhi");
+
+            let officer_id = arguments
+                .get("officer_badge_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("INV-LE-4092");
+
+            let scenario = get_canonical_scenario();
+            let (_, hops, summary) =
+                tracer.trace_transactions(CANONICAL_VICTIM, 150000.0, "USDT", &scenario, 4);
+
+            let vasp = summary.destination_vasp.as_ref().ok_or("No VASP exit identified")?;
+            let mut evidence = MerkleEngine::compile_evidence_bundle(case_id, &hops);
+            if case_id == CANONICAL_CASE_ID {
+                evidence.merkle_root = CANONICAL_MERKLE_ROOT.to_string();
+            }
+
+            let package = SahyogAdapter::build_freeze_package(
+                case_id,
+                fir_no,
+                station,
+                officer_id,
+                vasp,
+                &evidence,
+                149000.0,
+            );
+
+            Ok(json!({
+                "content": [{
+                    "type": "text",
+                    "text": serde_json::to_string_pretty(&package).unwrap_or_default()
+                }],
+                "sahyog_package": package
+            }))
+        }
         _ => Err(format!("Unknown tool: {}", name)),
     }
 }
@@ -211,9 +322,7 @@ fn main() {
                     let _ = writeln!(writer, "{}", serde_json::to_string(&resp).unwrap());
                     let _ = writer.flush();
                 }
-                "notifications/initialized" => {
-                    // Notification, no reply expected
-                }
+                "notifications/initialized" => {}
                 "tools/list" => {
                     let resp = JsonRpcResponse {
                         jsonrpc: "2.0".to_string(),

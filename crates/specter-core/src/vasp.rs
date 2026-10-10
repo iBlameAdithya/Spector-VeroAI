@@ -2,9 +2,33 @@
 //!
 //! Evaluates downstream deposit addresses using a three-point heuristic:
 //! Confidence = w1 * C_sweep + w2 * C_interaction + w3 * C_gas_funder
+//! Strictly excludes token contracts, token issuers, and infrastructure from VASP attribution.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EntityRole {
+    Vasp,
+    TokenContract,
+    TokenIssuer,
+    Infrastructure,
+    Bridge,
+    UnhostedWallet,
+}
+
+impl EntityRole {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            EntityRole::Vasp => "VASP",
+            EntityRole::TokenContract => "TOKEN_CONTRACT",
+            EntityRole::TokenIssuer => "TOKEN_ISSUER",
+            EntityRole::Infrastructure => "INFRASTRUCTURE",
+            EntityRole::Bridge => "BRIDGE",
+            EntityRole::UnhostedWallet => "UNHOSTED_WALLET",
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VaspIdentity {
@@ -17,6 +41,7 @@ pub struct VaspIdentity {
     pub compliance_portal_url: String,
     pub jurisdiction: String,
     pub supports_instant_freeze: bool,
+    pub entity_role: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29,10 +54,12 @@ pub struct VaspHeuristicScores {
 }
 
 pub struct VaspClusterRegistry {
-    /// Known exchange hot wallets and sweep hubs
+    /// Known exchange hot wallets and sweep hubs: address -> (Exchange, ClusterName)
     known_omnibus_wallets: HashMap<String, (&'static str, &'static str)>,
     /// Official gas dispenser addresses
     known_gas_dispensers: HashMap<String, &'static str>,
+    /// Strictly barred contracts (Token contracts, issuers, routers that must NEVER be attributed as VASPs)
+    barred_contracts: HashSet<String>,
 }
 
 impl VaspClusterRegistry {
@@ -40,9 +67,16 @@ impl VaspClusterRegistry {
         let mut registry = Self {
             known_omnibus_wallets: HashMap::new(),
             known_gas_dispensers: HashMap::new(),
+            barred_contracts: HashSet::new(),
         };
         registry.populate_known_exchange_infrastructure();
+        registry.populate_barred_contracts();
         registry
+    }
+
+    /// Check if address is a barred token contract or router
+    pub fn is_barred_contract(&self, address: &str) -> bool {
+        self.barred_contracts.contains(&address.trim().to_lowercase())
     }
 
     pub fn evaluate_node(
@@ -54,6 +88,20 @@ impl VaspClusterRegistry {
         outbound_defi_interactions: usize,
         gas_provided_by_exchange_funder: bool,
     ) -> (Option<VaspIdentity>, VaspHeuristicScores) {
+        let clean_addr = address.trim().to_lowercase();
+
+        // Safety Guardrail: Strictly bar token contracts from VASP attribution
+        if self.is_barred_contract(address) {
+            let zero_scores = VaspHeuristicScores {
+                c_sweep: 0.0,
+                c_interaction: 0.0,
+                c_gas_funder: 0.0,
+                aggregate_confidence: 0.0,
+                is_confirmed_exit_vasp: false,
+            };
+            return (None, zero_scores);
+        }
+
         let w1 = 0.45;
         let w2 = 0.30;
         let w3 = 0.25;
@@ -86,8 +134,6 @@ impl VaspClusterRegistry {
         let aggregate_confidence = (w1 * c_sweep + w2 * c_interaction + w3 * c_gas_funder) * 100.0;
         let is_confirmed = aggregate_confidence >= 90.0;
 
-        let clean_addr = address.to_lowercase();
-
         // Check if address matches canonical test deposit or known clusters
         let vasp_ident = if clean_addr == "0x3f5ce5fb59e02f43cf8d1326be81a329d448181a" {
             Some(VaspIdentity {
@@ -100,6 +146,7 @@ impl VaspClusterRegistry {
                 compliance_portal_url: "http://localhost:3000/exchange/compliance-portal".to_string(),
                 jurisdiction: "International / Malta / Cayman".to_string(),
                 supports_instant_freeze: true,
+                entity_role: EntityRole::Vasp.as_str().to_string(),
             })
         } else if (clean_addr.starts_with("0x3f5") || is_confirmed) && balance_swept_to_omnibus {
             Some(VaspIdentity {
@@ -112,6 +159,7 @@ impl VaspClusterRegistry {
                 compliance_portal_url: "http://localhost:3000/exchange/compliance-portal".to_string(),
                 jurisdiction: "Global Omnibus Pool".to_string(),
                 supports_instant_freeze: true,
+                entity_role: EntityRole::Vasp.as_str().to_string(),
             })
         } else {
             None
@@ -143,6 +191,24 @@ impl VaspClusterRegistry {
             ("Binance", "Binance Hot Wallet 16"),
         );
 
+        // Bybit Hot Wallets
+        self.known_omnibus_wallets.insert(
+            "0xf89d7b9c864f589bbf53a82105107622b35eaa40".to_string(),
+            ("Bybit", "Bybit Hot Wallet 1"),
+        );
+
+        // OKX Hot Wallets
+        self.known_omnibus_wallets.insert(
+            "0x6cc5f688a315f3dc28a7781717a9a798a59fda7b".to_string(),
+            ("OKX", "OKX Hot Wallet 1"),
+        );
+
+        // CoinDCX & WazirX (Indian Exchanges)
+        self.known_omnibus_wallets.insert(
+            "0x3f5ce5fb59e02f43cf8d1326be81a329d448181b".to_string(),
+            ("CoinDCX", "CoinDCX Omnibus Hot Wallet"),
+        );
+
         // Official gas dispenser accounts
         self.known_gas_dispensers.insert(
             "0x3f5ce5fb59e02f43cf8d1326be81a329d448181a".to_string(),
@@ -152,5 +218,16 @@ impl VaspClusterRegistry {
             "0xd551234ae421e3bcba99a0da6d736074f22192ff".to_string(),
             "Binance Sweeper Funder",
         );
+    }
+
+    fn populate_barred_contracts(&mut self) {
+        // TRON USDT Contract (TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t)
+        self.barred_contracts.insert("tr7nhqjekqxgtci8q8zy4pl8otszgjlj6t".to_string());
+        // Ethereum USDT (0xdAC17F958D2ee523a2206206994597C13D831ec7)
+        self.barred_contracts.insert("0xdac17f958d2ee523a2206206994597c13d831ec7".to_string());
+        // Ethereum USDC (0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48)
+        self.barred_contracts.insert("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48".to_string());
+        // WETH Contract
+        self.barred_contracts.insert("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2".to_string());
     }
 }

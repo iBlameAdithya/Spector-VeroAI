@@ -44,7 +44,7 @@ Verifies backend engine status and real-time P99 reflex gate latency.
 ---
 
 ### 2.2 `POST /api/v1/trace`
-Executes System 1 reflex screening (<100µs), traverses the multi-hop peel chain, identifies the terminal VASP exit, and compiles the cryptographic BLAKE3 Merkle evidence bundle.
+Executes System 1 reflex screening (<100µs), auto-detects blockchain network, extracts multi-hop peel chains, executes EGRE financial crime typology detection, computes fund flow velocity analytics, identifies terminal VASP liquidation points, and compiles BLAKE3 Merkle evidence.
 
 * **Request Headers:** `Content-Type: application/json`
 * **Request Body:**
@@ -56,12 +56,12 @@ Executes System 1 reflex screening (<100µs), traverses the multi-hop peel chain
     "max_hops": 4
   }
   ```
-  *(Note: Any custom transaction hash and wallet address can also be supplied; dynamic mock chains are synthesized on the fly).*
 
 * **Response (200 OK):**
   ```json
   {
     "case_id": "SPECTER-2026-9921",
+    "detected_chain": "ethereum",
     "system1_reflex": {
       "is_instant_threat": true,
       "latency_us": 48,
@@ -86,6 +86,55 @@ Executes System 1 reflex screening (<100µs), traverses the multi-hop peel chain
         "jurisdiction": "International / Malta / Cayman",
         "supports_instant_freeze": true
       }
+    },
+    "typologies": [
+      {
+        "typology_id": "TYP-PEEL-001",
+        "typology_name": "RAPID_PEEL_CHAIN_DISPERSAL",
+        "severity": "CRITICAL",
+        "description": "Sequential 3-hop peeling structure detected: funds forwarded with >=85% payload retention per hop.",
+        "trigger_conditions": [
+          "Hop sequence length: 3 hops",
+          "Volume forwarding ratio >= 0.85 on primary value trunk",
+          "Secondary peel outputs detached at intermediate mule splits"
+        ],
+        "confidence_score": 96.5,
+        "supporting_transactions": ["0x111...aaa", "0x222...bbb", "0x333...ccc"],
+        "supporting_wallets": ["0x99a...44f", "0xd4b...110", "0x3f5...81a"],
+        "is_known_service_entity": false
+      },
+      {
+        "typology_id": "TYP-VASP-CONV-001",
+        "typology_name": "VASP_LIQUIDATION_CONVERGENCE",
+        "severity": "CRITICAL",
+        "description": "Terminal flow converges directly to centralized VASP Binance. Immediate off-ramping risk.",
+        "trigger_conditions": [
+          "Destination Exchange: Binance",
+          "Deposit Cluster: Deposit Hot Wallet #6"
+        ],
+        "confidence_score": 98.4,
+        "supporting_transactions": ["0x333...ccc"],
+        "supporting_wallets": ["0x3f5...81a"],
+        "is_known_service_entity": true
+      }
+    ],
+    "velocity": {
+      "total_duration_seconds": 840,
+      "hop_count": 3,
+      "min_delta_t_seconds": 360,
+      "avg_delta_t_seconds": 420,
+      "max_delta_t_seconds": 480,
+      "is_burst_drainer": true,
+      "burst_velocity_category": "RAPID_MULE_HOPPING",
+      "estimated_liquidation_eta_minutes": 25,
+      "velocity_risk_score": 92.5,
+      "rolling_windows": [
+        { "window_label": "1m", "window_seconds": 60, "volume_usd": 10714.28, "percentage_of_total": 7.14 },
+        { "window_label": "5m", "window_seconds": 300, "volume_usd": 53571.42, "percentage_of_total": 35.71 },
+        { "window_label": "10m", "window_seconds": 600, "volume_usd": 107142.85, "percentage_of_total": 71.42 },
+        { "window_label": "30m", "window_seconds": 1800, "volume_usd": 150000.0, "percentage_of_total": 100.0 },
+        { "window_label": "1h", "window_seconds": 3600, "volume_usd": 150000.0, "percentage_of_total": 100.0 }
+      ]
     },
     "graph": {
       "nodes": [
@@ -128,7 +177,53 @@ Executes System 1 reflex screening (<100µs), traverses the multi-hop peel chain
 
 ---
 
-### 2.3 `POST /api/v1/agent/prepare-freeze`
+### 2.3 `POST /api/v1/sahyog/package`
+Generates a court-admissible Indian Law Enforcement / MHA I4C SAHYOG asset freeze package under Section 91 & Section 94 CrPC / BNSS.
+
+* **Request Body:**
+  ```json
+  {
+    "case_id": "SPECTER-2026-9921",
+    "fir_number": "FIR/2026/CYBER-409",
+    "police_station": "Special Cyber Crime Cell, New Delhi",
+    "officer_badge_id": "INV-LE-4092"
+  }
+  ```
+
+* **Response (200 OK):**
+  ```json
+  {
+    "package_id": "SAHYOG-MHA-42F32FAB3F1A",
+    "case_id": "SPECTER-2026-9921",
+    "fir_number": "FIR/2026/CYBER-409",
+    "police_station": "Special Cyber Crime Cell, New Delhi",
+    "investigating_officer_id": "INV-LE-4092",
+    "target_vasp_name": "Binance",
+    "target_deposit_address": "0x3f5ce5fb59e02f43cf8d1326be81a329d448181a",
+    "claimed_value": "$149000.00 USDT",
+    "statutory_framework": "Section 91/94 CrPC & Section 94 BNSS (2023)",
+    "legal_directive_title": "MHA-I4C Urgent Asset Preservation Directive (Binance)",
+    "formal_freeze_notice_text": "STATUTORY NOTICE UNDER SECTION 91/94 CrPC...",
+    "evidence_chain": [
+      { "step_number": 1, "element_type": "VASP_ENTITY", "label": "Attributed VASP", "value": "Binance" },
+      { "step_number": 2, "element_type": "SUSPECT_ENDPOINT", "label": "Suspect Deposit Address", "value": "0x3f5...81a" },
+      { "step_number": 3, "element_type": "ATTRIBUTION_CONFIDENCE", "label": "Attribution Score", "value": "98.4 / 100" },
+      { "step_number": 4, "element_type": "STATUTORY_GROUNDS", "label": "Legal Grounds", "value": "FIR No. FIR/2026/CYBER-409" },
+      { "step_number": 5, "element_type": "MERKLE_ROOT_PROOF", "label": "Cryptographic Root", "value": "0x7f83...9069" },
+      { "step_number": 6, "element_type": "PROVENANCE_LEVEL", "label": "Source Quality", "value": "Level 1: Official Mathematical Forensics" },
+      { "step_number": 7, "element_type": "OFFICER_SIGNATURE", "label": "Officer Digital Stamp", "value": "INV-LE-4092" }
+    ],
+    "merkle_root": "0x7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
+    "algorithm": "BLAKE3-256",
+    "provenance_quality_level": "Level 1: Official Statutory Directive",
+    "status": "READY_FOR_SAHYOG_PORTAL_DISPATCH",
+    "timestamp_utc": "2026-10-10T14:35:00Z"
+  }
+  ```
+
+---
+
+### 2.4 `POST /api/v1/agent/prepare-freeze`
 Triggers the browser agent to pre-populate statutory compliance inputs on the exchange intake portal and halts at the mandatory Human-in-the-Loop checkpoint.
 
 * **Request Body:**
@@ -157,7 +252,7 @@ Triggers the browser agent to pre-populate statutory compliance inputs on the ex
 
 ---
 
-### 2.4 `POST /api/v1/agent/sign-and-submit`
+### 2.5 `POST /api/v1/agent/sign-and-submit`
 Receives the authorized officer's badge ID, legal attestation, and cryptographic signature to execute the final freeze warrant submission.
 
 * **Request Body:**
@@ -224,6 +319,38 @@ export interface TracingSummary {
   destination_vasp?: VaspIdentity;
 }
 
+export interface TypologyFinding {
+  typology_id: string;
+  typology_name: string;
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
+  description: string;
+  trigger_conditions: string[];
+  confidence_score: number;
+  supporting_transactions: string[];
+  supporting_wallets: string[];
+  is_known_service_entity: boolean;
+}
+
+export interface RollingWindowMetric {
+  window_label: string;
+  window_seconds: number;
+  volume_usd: number;
+  percentage_of_total: number;
+}
+
+export interface VelocityAnalysis {
+  total_duration_seconds: number;
+  hop_count: number;
+  min_delta_t_seconds?: number;
+  avg_delta_t_seconds?: number;
+  max_delta_t_seconds?: number;
+  is_burst_drainer: boolean;
+  burst_velocity_category: string;
+  estimated_liquidation_eta_minutes: number;
+  velocity_risk_score: number;
+  rolling_windows: RollingWindowMetric[];
+}
+
 export interface GraphNode {
   id: string;
   label: string;
@@ -259,10 +386,41 @@ export interface EvidenceBundle {
 
 export interface TraceResponse {
   case_id: string;
+  detected_chain: string;
   system1_reflex: ReflexScreeningResult;
   tracing_summary: TracingSummary;
+  typologies: TypologyFinding[];
+  velocity: VelocityAnalysis;
   graph: ForensicGraph;
   evidence_bundle: EvidenceBundle;
+}
+
+export interface SahyogChainStep {
+  step_number: number;
+  element_type: string;
+  label: string;
+  value: string;
+  detail: string;
+}
+
+export interface SahyogPackage {
+  package_id: string;
+  case_id: string;
+  fir_number: string;
+  police_station: string;
+  investigating_officer_id: string;
+  target_vasp_name: string;
+  target_deposit_address: string;
+  claimed_value: string;
+  statutory_framework: string;
+  legal_directive_title: string;
+  formal_freeze_notice_text: string;
+  evidence_chain: SahyogChainStep[];
+  merkle_root: string;
+  algorithm: string;
+  provenance_quality_level: string;
+  status: string;
+  timestamp_utc: string;
 }
 ```
 

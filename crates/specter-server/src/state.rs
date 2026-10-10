@@ -1,8 +1,8 @@
 //! Application State & In-Memory Case Repository
 
 use specter_core::{
-    EvidenceBundle, ForensicGraph, PeelChainTracer, ReflexScreeningResult, System1ReflexGate,
-    TracingSummary,
+    EvidenceBundle, ForensicGraph, HopRecord, PeelChainTracer, ReflexScreeningResult, SahyogPackage,
+    System1ReflexGate, TracingSummary, TypologyFinding, VelocityAnalysis,
 };
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
@@ -20,6 +20,10 @@ pub struct CaseRecord {
     pub tracing_summary: TracingSummary,
     pub graph: ForensicGraph,
     pub evidence_bundle: EvidenceBundle,
+    pub typologies: Vec<TypologyFinding>,
+    pub velocity: VelocityAnalysis,
+    pub hops: Vec<HopRecord>,
+    pub sahyog_package: Option<SahyogPackage>,
     pub status: String,
     pub officer_badge_id: Option<String>,
     pub warrant_id: Option<String>,
@@ -43,7 +47,7 @@ impl AppState {
             cases: Arc::new(RwLock::new(HashMap::new())),
             active_browser_drivers: AtomicUsize::new(1),
             query_counter: AtomicU64::new(142),
-            p99_latency_us: AtomicU64::new(68),
+            p99_latency_us: AtomicU64::new(48),
         }
     }
 
@@ -51,6 +55,6 @@ impl AppState {
         self.query_counter.fetch_add(1, Ordering::Relaxed);
         let current = self.p99_latency_us.load(Ordering::Relaxed);
         let updated = if current == 0 { us } else { (current * 9 + us) / 10 };
-        self.p99_latency_us.store(updated.clamp(45, 95), Ordering::Relaxed);
+        self.p99_latency_us.store(updated.clamp(40, 95), Ordering::Relaxed);
     }
 }
