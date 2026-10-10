@@ -1,0 +1,24 @@
+[package]
+name = "specter-server"
+version = "0.1.0"
+edition = "2021"
+authors = ["SPECTER Core Architecture Group"]
+description = "Axum HTTP API & Telemetry Server for SPECTER Incident Response"
+
+[dependencies]
+specter-core = { path = "../specter-core" }
+axum = { version = "0.7", features = ["json"] }
+tokio = { version = "1.0", features = ["full"] }
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+hex = "0.4"
+blake3 = "1.5"
+reqwest = { version = "0.12", features = ["json"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"

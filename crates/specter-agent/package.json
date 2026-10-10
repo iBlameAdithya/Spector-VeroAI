@@ -1,0 +1,17 @@
+{
+  "name": "specter-agent",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "SPECTER Agentic Browser Operator and Exchange Compliance Intake Portal",
+  "main": "browser_actor.js",
+  "scripts": {
+    "start": "node portal_server.js",
+    "agent": "node browser_actor.js",
+    "portal": "node portal_server.js"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0",
+    "express": "^4.21.2",
+    "cors": "^2.8.5"
+  }
+}

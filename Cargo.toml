@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "crates/specter-core",
+    "crates/specter-server",
+    "crates/specter-mcp",
+]
+resolver = "2"
