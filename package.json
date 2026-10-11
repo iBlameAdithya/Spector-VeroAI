@@ -1,0 +1,11 @@
+{
+  "name": "specter-vero-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SPECTER Blockchain Financial-Crime Investigation Workstation & Core Engine",
+  "scripts": {
+    "build": "npm --prefix frontend run build",
+    "tsc": "npm --prefix frontend run build",
+    "dev": "npm --prefix frontend run dev"
+  }
+}
